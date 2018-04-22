@@ -12,12 +12,12 @@ async function generateSquareData(targetID){
 	var canvas = document.createElement('canvas');
 	//var canvas = document.getElementById('canvas');
 
-	
+
 	canvas.width = 10;
 	canvas.height = 10;
-	
+
 	images = [];
-	
+
 	for(var i = 0; i < targetFiles.length; i++){
 		var output = document.getElementById(targetID);
 		output.src = URL.createObjectURL(targetFiles[i]);
@@ -74,7 +74,7 @@ void setup() {\n\
 \tFastLED.addLeds&lt;WS2811, DATA_PIN, RGB>(leds, NUM_LEDS);\n\
 }\n\
 \n';
-	
+
 	//Add colours
 	out += 'int colours['+colours.length+'][3]={\n'
 	for(var i = 0; i<colours.length;i++){
@@ -97,7 +97,7 @@ void setup() {\n\
 	}
 	out = out.slice(0,-5);
 	out+="};\n\n";
-	
+
 	//Set leds
 	out += '\
 void loop() {\n\
@@ -111,14 +111,17 @@ void loop() {\n\
 
 out+='\n}\n';
 
-			
+
 	console.log(out);
-	document.getElementById('output').innerHTML=out.split("\n").join("<br/>").split("\t").join("&nbsp&nbsp&nbsp&nbsp");	
+	document.getElementById('output').innerHTML=out.split("\n").join("<br/>").split("\t").join("&nbsp&nbsp&nbsp&nbsp");
 }
 
 function start(targetID, mode){
 	if(mode == 'square'){
 		generateSquareData(targetID);
+	}
+	if(mode == 'long'){
+		generateLongData(targetID);
 	}
 }
 
@@ -128,47 +131,47 @@ async function generateLongData(targetID){
 	var canvas = document.createElement('canvas');
 	//var canvas = document.getElementById('canvas');
 
-	
-	canvas.width = 10;
+
+	var output = document.getElementById(targetID);
+  output.src = URL.createObjectURL(targetFiles[0]);
+  //Wait for image to update
+  await sleep(100);
+  width = output.naturalWidth;
+
+	canvas.width = width;
 	canvas.height = 10;
-	
-	images = [];
-	
-	for(var i = 0; i < targetFiles.length; i++){
-		var output = document.getElementById(targetID);
-		output.src = URL.createObjectURL(targetFiles[i]);
-		//Wait for image to update
-		await sleep(100);
-		canvas.getContext('2d').drawImage(output, 0, 0, 10, 10);
-		var data = [];
-		for(var y = 0; y < 10; y++){
-			for(var x = 0; x < 10; x++){
-				console.log(x, y);
-				var pixelData = Array.prototype.slice.call(canvas.getContext('2d').getImageData(x, y, 1, 1).data);
-				var colour = [pixelData[0],pixelData[1],pixelData[2]];
-				//console.log(colour);
-				if(inArray(colours, colour)!=-1){
-					data.push(inArray(colours, colour));
-				}
-				else{
-					colours.push(colour)
-					data.push(colours.length-1);
-				}
+
+
+	canvas.getContext('2d').drawImage(output, 0, 0, width, 10);
+	var data = [];
+	for(var y = 0; y < 10; y++){
+		for(var x = 0; x < width; x++){
+			console.log(x, y);
+			var pixelData = Array.prototype.slice.call(canvas.getContext('2d').getImageData(x, y, 1, 1).data);
+			var colour = [pixelData[0],pixelData[1],pixelData[2]];
+			//console.log(colour);
+			if(inArray(colours, colour)!=-1){
+				data.push(inArray(colours, colour));
+			}
+			else{
+				colours.push(colour)
+				data.push(colours.length-1);
 			}
 		}
-		images.push(data);
 	}
 	console.log(colours);
-	console.log(images);
-	generateLongCode(colours, images);
+	console.log(data);
+	generateLongCode(colours, data);
 }
 
 function generateLongCode(colours, data){
 
+	console.log("generating");
 
 	delay = document.getElementById('delay').value;
 	//TODO calculate columns;
-	columns = 5;
+	columns = data.length/10;
+  console.log(data.length)
 	//Header
 	out ='\
 #include "FastLED.h"\n\
@@ -193,7 +196,7 @@ void setup() {\n\
 \tSerial.begin(9600);\n\
 }\n\
 \n';
-	
+
 	//Add colours
 	out += 'int colours['+colours.length+'][3]={\n'
 	for(var i = 0; i<colours.length;i++){
@@ -203,37 +206,56 @@ void setup() {\n\
 	//Add pixels
 	out+="int LENGTH = "+columns+";\n";
 	out+="int image["+columns*10+"]={\n\t\t";
-	for(var
-	
+  for(var a = 0; a < 10; a++){
+    for(var b = 0; b < columns; b++){
+      out+=data[a*columns+b]+",";
+    }
+    out+="\n\t\t"
+  }
+  out+="};\n\n"
+
+
 	//Set leds
 	out += '\
 void loop() {\n\
-\n\
-\n\
-      for(int col = 0; col < LENGTH; col++){\n\
-        int temp[100];\n\
-        int index = 0;\n\
-        for(int y = 0; y < 10; y++){\n\
-          for(int x = col; x < 10+col; x++){\n\
-            temp[index] = image[(x % LENGTH)+y*LENGTH];\n\
-            index++;\n\
-            Serial.print(image[x+y*LENGTH]);\n\
-          }\n\
-          Serial.println();\n\
-        }\n\
-        Serial.println();\n\
-        Serial.println();\n\
-        for (int i = 0; i < 100; i++) {\n\
-            leds[serpentine(i)] = CRGB(colours[colour][0],colours[colour][1],colours[colour][2]);\n\
-        }\n\
-        FastLED.show();\n\
-        delay(100);\n\
-      }\n\
+\tfor(int col = 0; col < LENGTH; col++){\n\
+\t\tint temp[100];\n\
+\t\tint index = 0;\n\
+\t\tfor(int y = 0; y < 10; y++){\n\
+\t\t\tfor(int x = col; x < 10+col; x++){\n\
+\t\t\t\ttemp[index] = image[(x % LENGTH)+y*LENGTH];\n\
+\t\t\t\tindex++;\n\
+\t\t\t\tSerial.print(image[x+y*LENGTH]);\n\
+\t\t\t}\n\
+\t\t\tSerial.println();\n\
+\t\t}\n\
+\t\tSerial.println();\n\
+\t\tSerial.println();\n\
+\t\tfor (int i = 0; i < 100; i++) {\n\
+\t\t\tleds[serpentine(i)] = CRGB(colours[colour][0],colours[colour][1],colours[colour][2]);\n\
+\t\t}\n\
+\t\tFastLED.show();\n\
+\t\tdelay(100);\n\
+\t}\n\
 }';
 
-			
+
 	console.log(out);
-	document.getElementById('output').innerHTML=out.split("\n").join("<br/>").split("\t").join("&nbsp&nbsp&nbsp&nbsp");	
+	document.getElementById('output').innerHTML=out.split("\n").join("<br/>").split("\t").join("&nbsp&nbsp&nbsp&nbsp");
+
+  out = "";
+  out+="int image["+columns*10+"]={\n\t";
+	for(var a = 0; a < 10; a++){
+		for(var b = 0; b < columns; b++){
+			out+=data[a*columns+b]+",";
+			console.log(data[a*columns+b]+"\t"+(a*columns+b))
+		}
+		out+="\n\t"
+    console.log("NEWLINE")
+	}
+  out+="};"
+	console.log(out);
+	// document.getElementById('output').innerHTML=out.split("\n").join("<br/>").split("\t").join("&nbsp&nbsp&nbsp&nbsp");
 }
 
 
@@ -261,7 +283,7 @@ Delay:
 ms
 </input>
 <br/><br/>
-<img id = "squareImage" width="500" height="500" style=" 
+<img id = "squareImage" width="500" height="500" style="
     image-rendering: optimizeSpeed;             /* STOP SMOOTHING, GIVE ME SPEED  */
     image-rendering: -moz-crisp-edges;          /* Firefox                        */
     image-rendering: -o-crisp-edges;            /* Opera                          */
@@ -278,15 +300,15 @@ ms
 
 
 <div id = "text" style = "display:inline-block;border:2px solid black;padding:5px">
-<input type="file" accept = "image/* "  onchange="updateImage(event, 'longImage')" multiple>
+<input type="file" accept = "image/* "  onchange="updateImage(event, 'longImage')">
 </input>
 Duration:
 <input type="number" id = "delay" style="width:75px;">
 ms
 </input>
 <br/><br/>
-<img id = "longImage"	style=" 
-	width:100%; height:auto; 
+<img id = "longImage"	style="
+	width:100%; height:auto;
     image-rendering: optimizeSpeed;             /* STOP SMOOTHING, GIVE ME SPEED  */
     image-rendering: -moz-crisp-edges;          /* Firefox                        */
     image-rendering: -o-crisp-edges;            /* Opera                          */
